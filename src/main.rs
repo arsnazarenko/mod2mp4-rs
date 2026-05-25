@@ -135,7 +135,7 @@ impl std::fmt::Display for MoiDate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{:04}-{:02}-{:02}_{:02}:{:02}",
+            "{:04}-{:02}-{:02}_{:02}_{:02}",
             self.year, self.month, self.day, self.hours, self.minutes
         )
     }
