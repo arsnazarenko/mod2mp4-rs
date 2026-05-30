@@ -38,8 +38,8 @@ struct Cli {
 fn convert_mod_to_mp4(num: usize, input: &Path, output: &Path) -> io::Result<()> {
     let filter = "yadif=0:-1:0,minterpolate=fps=50:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1";
 
-    print!(
-        "{}. Converting {} -> {} ... ",
+    println!(
+        "{}. Converting {} -> {}",
         num,
         input.display(),
         output.display()
@@ -59,14 +59,25 @@ fn convert_mod_to_mp4(num: usize, input: &Path, output: &Path) -> io::Result<()>
         .output(output.to_str().unwrap());
 
     let mut child = cmd.spawn()?;
-    let mut stderr_str = String::new();
-    if let Some(mut stderr) = child.take_stderr() {
-        let _ = stderr.read_to_string(&mut stderr_str);
-    }
+    child
+        .iter()
+        .unwrap()
+        .filter_map(|e| match e {
+            ffmpeg_sidecar::event::FfmpegEvent::Progress(p) => Some(p),
+            _ => None,
+        })
+        .for_each(|p| {
+            print!("\rOutput: {} Kb ", p.size_kb);
+            let _ = std::io::stdout().flush();
+        });
 
     let ret = child.wait()?;
 
     if !ret.success() {
+        let mut stderr_str = String::new();
+        if let Some(mut stderr) = child.take_stderr() {
+            let _ = stderr.read_to_string(&mut stderr_str);
+        }
         println!("Error");
         let err_msg = format!(
             "FFmpeg process failed with reture code: {}
@@ -77,7 +88,7 @@ fn convert_mod_to_mp4(num: usize, input: &Path, output: &Path) -> io::Result<()>
 
         Err(io::Error::other(err_msg))
     } else {
-        println!("Success");
+        println!("Done");
         Ok(())
     }
 }
@@ -93,12 +104,12 @@ fn process_file(num: usize, input: &Path, out_dir: &Path, date: bool) -> io::Res
         let moi_date = parse_moi_date(moi_file.clone()).map_err(|e| {
             io::Error::other(format!("Failed to open {} file: {}", moi_file.display(), e))
         })?;
-        moi_date.to_string()
+        format!("_{}", moi_date)
     } else {
         "".to_string()
     };
 
-    let output = out_dir.join(format!("{}_{}.mp4", stem, moi_date));
+    let output = out_dir.join(format!("{}{}.mp4", stem, moi_date));
 
     convert_mod_to_mp4(num, input, &output)
 }
